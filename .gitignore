@@ -1,0 +1,13 @@
+node_modules/
+release/
+qa/
+premium-audit.json
+*.log
+.env
+.env.*
+identity.json
+state.dat*
+*.part
+*.pem
+*.key
+.test-work/

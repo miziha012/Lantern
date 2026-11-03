@@ -1,0 +1,1 @@
+{"profile":"product-admin","sourceRoots":["ui"],"locale":"zh-CN","canonicalMap":"UX-CONTRACT.md","requiredCapabilities":["Table Selection","Select/Listbox","Date","Form","Scrollbar","Toast","CRUD"],"ownership":{"Select/Listbox":"native","Date":"native"},"evidence":{"crudFullFlow":"scripts/e2e.cjs","failurePaths":"test/engine.test.cjs"}}
