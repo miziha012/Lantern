@@ -22,3 +22,8 @@ test('两个真实 HTTPS 实例：配对、拒绝未授权、聊天、证书锁�
     b.state.settings.autoReceive=false;const pending=crypto.randomUUID();const offer=await request(peer,'/offer',{id:pending,name:'确认.txt',size:0,hash:crypto.createHash('sha256').update('').digest('hex')});assert.equal(offer.status,'等待接收');await assert.rejects(request(peer,`/chunk/${pending}?offset=0`,Buffer.alloc(0),'PUT',true),/不可写入/);b.accept(pending,true);await request(peer,`/chunk/${pending}?offset=0`,Buffer.alloc(0),'PUT',true);assert.equal(b.state.transfers.find(t=>t.id===pending).status,'已完成');
   }finally{await a.close();await b.close();await fs.rm(root,{recursive:true,force:true});}
 });
+
+test('默认接收目录及已有自定义目录保留',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'lantern-default-'));
+ try{const receive=path.join(root,'Lantern','fileManagement');const a=new Engine(path.join(root,'data'),{downloadDir:receive});assert.equal(a.state.settings.downloadDir,receive);a.state.settings.downloadDir=path.join(root,'Custom');a.save();const b=new Engine(path.join(root,'data'),{downloadDir:receive});assert.equal(b.state.settings.downloadDir,path.join(root,'Custom'));}finally{await fs.rm(root,{recursive:true,force:true});}
+});

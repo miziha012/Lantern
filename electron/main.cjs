@@ -1,6 +1,8 @@
-const {app,BrowserWindow,ipcMain,dialog,shell,safeStorage,globalShortcut,desktopCapturer,screen,clipboard,nativeImage,Menu}=require('electron');
+const {app,BrowserWindow,ipcMain,dialog,shell,safeStorage,globalShortcut,desktopCapturer,screen,clipboard,nativeImage,Menu,protocol,net}=require('electron');
+const {pathToFileURL}=require('node:url');
 const fs=require('node:fs/promises');const path=require('node:path');const crypto=require('node:crypto');
 const {Engine}=require('../core/engine.cjs');const {safeRelative,uniquePath}=require('../core/files.cjs');
+protocol.registerSchemesAsPrivileged([{scheme:'lantern-image',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 if(process.env.LANTERN_DATA_DIR)app.setPath('userData',path.resolve(process.env.LANTERN_DATA_DIR));
 if(!app.requestSingleInstanceLock())app.quit();
 let main,engine,captures=[],captureFrames=new Map(),captureBusy=false;
@@ -25,7 +27,16 @@ async function capture(){if(captureBusy)return;captureBusy=true;try{
 }catch(e){closeCapture();throw e;}}
 app.whenReady().then(async()=>{
   if(!safeStorage.isEncryptionAvailable())throw Error('Windows 凭据加密不可用');
-  engine=new Engine(app.getPath('userData'),{encode:s=>safeStorage.encryptString(s),decode:b=>safeStorage.decryptString(b)});await engine.start(Number(process.env.LANTERN_PORT)||0);
+  const receiveRoot=process.env.LANTERN_DATA_DIR?app.getPath('userData'):(app.isPackaged?path.dirname(app.getPath('exe')):app.getAppPath());
+  engine=new Engine(app.getPath('userData'),{downloadDir:path.join(receiveRoot,'fileManagement'),encode:s=>safeStorage.encryptString(s),decode:b=>safeStorage.decryptString(b)});await engine.start(Number(process.env.LANTERN_PORT)||0);
+  protocol.handle('lantern-image',async request=>{
+    try{const url=new URL(request.url);if(url.hostname!=='transfer')return new Response('Not found',{status:404});
+      const id=decodeURIComponent(url.pathname.slice(1));const t=engine.state.transfers.find(t=>t.id===id&&t.status==='已完成'&&t.path&&/\.(png|jpe?g|gif|webp|bmp)$/i.test(t.name));
+      if(!t)return new Response('Not found',{status:404});
+      const file=await allowedPath(t.path);const response=await net.fetch(pathToFileURL(file).toString());
+      return new Response(response.body,{status:response.status,headers:{'Content-Type':({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.bmp':'image/bmp'})[path.extname(t.name).toLowerCase()],'Content-Security-Policy':"default-src 'none'",'X-Content-Type-Options':'nosniff'}});
+    }catch{return new Response('Image unavailable',{status:404});}
+  });
   main=new BrowserWindow(windowOptions({width:1220,height:820,minWidth:780,minHeight:580,title:'Lantern',backgroundColor:'#f5f6f8',show:false}));secure(main);Menu.setApplicationMenu(null);
   const register=shortcut=>{if(!globalShortcut.register(shortcut,()=>capture().catch(e=>dialog.showErrorBox('截图失败',e.message))))throw Error('截图快捷键已被占用，请换一个组合键');};
   bind('snapshot',()=>engine.snapshot());bind('inspect',(host,port)=>engine.inspect(host,port));bind('pair',input=>engine.pair(input));bind('message',(id,text)=>engine.message(id,text));

@@ -2,9 +2,9 @@
 
 局域网聊天、文件传输与本地文件管理工具，面向 Windows 10/11 x64。
 
-[下载 Windows 预览版](https://github.com/miziha012/Lantern/releases/tag/v0.1.0) · [查看版本](https://github.com/miziha012/Lantern/releases)
+[下载 Windows 预览版](https://github.com/miziha012/Lantern/releases/tag/v0.2.0) · [查看版本](https://github.com/miziha012/Lantern/releases)
 
-当前为 **v0.1.0 预览版**，尚需两台物理电脑的完整联测。
+当前为 **v0.2.0 预览版**，尚需两台物理电脑的完整联测。
 
 ## 在两台电脑上使用
 
@@ -35,7 +35,7 @@
 
 ## 设置与本地数据
 
-默认接收目录为当前用户 Downloads 下的“Lantern”。配对后默认自动接收，可在设置关闭。关闭后逐文件确认。
+默认接收目录为软件所在文件夹下的 `fileManagement`（例如 `D:\Lantern\fileManagement`）。已有自定义目录保持不变，旧文件不会自动搬动。配对后默认自动接收，可在设置关闭。关闭后逐文件确认。
 关闭窗口会退出应用；双方必须保持 Lantern 运行才能通信。修改设备名称后重启应用更新附近设备列表中的广播名称。
 数据位于当前 Windows 用户的应用数据目录（开发版通常为 %APPDATA%/lantern-lan）。凭据和历史用 Windows 凭据能力加密，不能直接复制数据目录到另一台机器恢复身份。
 
@@ -63,3 +63,9 @@ Electron 安装下载若超时，可按自身网络情况配置 Electron 下载�
 ## 设计来源
 
 采用社区 Apple Design skill https://github.com/tzzs/apple-design-skill 的层级、导航和工具栏建议，并结合本机 Frontend Design 与 Premium skill。不是 Apple 官方应用或 Apple 原生组件。规范与行为约定见 DESIGN.md、UX-CONTRACT.md。
+
+## 0.2 更新
+
+顶部按钮提供截图、文件管理和设置，侧栏只显示设备。点击 Lantern 返回聊天。图片在聊天中保持原比例完整显示，点击查看大图；文件与压缩包使用图标。当前渲染层为原生 HTML/CSS/JavaScript，尚未迁移 React 或 Tauri。
+
+Windows 包只保留中英文 Electron 语言资源，本次压缩包由约 130.7 MiB 缩减为约 119.8 MiB。Electron 仍自带运行时，因此这只是分发大小优化；不会令运行时内存按同样比例下降。

@@ -44,7 +44,8 @@ class Engine extends EventEmitter {
     this.statePath=path.join(dir,'state.dat');
     try { this.state=JSON.parse(options.decode?options.decode(fs.readFileSync(this.statePath)):fs.readFileSync(this.statePath,'utf8')); }
     catch(e) { if(fs.existsSync(this.statePath)) throw Error('本地数据无法读取，请保留数据文件后联系开发者'); }
-    this.state ||= {id:uuid(),name:os.hostname(),peers:[],messages:[],transfers:[],roots:[],settings:{autoReceive:true,downloadDir:path.join(os.homedir(),'Downloads','Lantern'),shortcut:'Alt+Shift+S'}};
+    this.state ||= {id:uuid(),name:os.hostname(),peers:[],messages:[],transfers:[],roots:[],settings:{autoReceive:true,downloadDir:options.downloadDir||path.join(os.homedir(),'Lantern','fileManagement'),shortcut:'Alt+Shift+S'}};
+    if(options.downloadDir && this.state.settings.downloadDir===path.join(os.homedir(),'Downloads','Lantern')) this.state.settings.downloadDir=options.downloadDir;
     this.discovered=new Map(); this.active=new Map(); this.cancelled=new Set(); this.writing=new Set(); this.rate=new Map();
     this.rotateCode(); this.save();
     for(const t of this.state.transfers) if(['传输中','校验中','准备中'].includes(t.status)) t.status='已中断';

@@ -11,3 +11,4 @@ state.dat*
 *.pem
 *.key
 .test-work/
+fileManagement/
