@@ -12,3 +12,8 @@ state.dat*
 *.key
 .test-work/
 fileManagement/
+
+ui/controls.bundle.*
+
+ui/errors.bundle.*
+ui/icons.bundle.*

@@ -1,6 +1,6 @@
 {
   "name": "lantern-lan",
-  "version": "0.2.0",
+  "version": "0.3.6",
   "private": true,
   "description": "Lantern · 局域网聊天与文件管理",
   "author": "Lantern",
@@ -11,7 +11,19 @@
     "check": "node scripts/check.cjs",
     "pack": "electron-builder --win portable --x64",
     "test:e2e": "node scripts/e2e.cjs",
-    "pack:dir": "electron-builder --win --dir --x64"
+    "pack:dir": "electron-builder --win --dir --x64",
+    "test:satellite": "node scripts/satellite-qa.cjs",
+    "build:ui": "node scripts/build-ui.cjs",
+    "prestart": "npm run build:ui",
+    "prepack": "npm run build:ui",
+    "prepack:dir": "npm run build:ui",
+    "pretest:e2e": "npm run build:ui",
+    "pretest:satellite": "npm run build:ui",
+    "precheck": "npm run build:ui",
+    "test:controls": "node scripts/controls-qa.cjs",
+    "pretest:controls": "npm run build:ui",
+    "test:images": "node scripts/image-frame-qa.cjs",
+    "pretest:images": "npm run build:ui"
   },
   "dependencies": {
     "bonjour-service": "^1.3.0",
@@ -20,7 +32,12 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "electron": "^39.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
+    "lucide-static": "^1.67.0",
+    "motion": "^14.9.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "build": {
     "appId": "local.lantern.desktop",
@@ -33,7 +50,8 @@
       "core/**",
       "ui/**",
       "package.json",
-      "assets/**"
+      "assets/**",
+      "!ui/controls/**"
     ],
     "win": {
       "target": "portable",
@@ -43,6 +61,7 @@
     "electronLanguages": [
       "zh-CN",
       "en-US"
-    ]
+    ],
+    "afterPack": "scripts/after-pack.cjs"
   }
 }

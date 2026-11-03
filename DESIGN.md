@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: "Lantern"
-description: "Windows 局域网文件与聊天工作台，顶部工具栏和设备列表的紧凑布局"
+description: "Windows 局域网文件与聊天工作台，卫星图首页与紧凑的聊天工具界面"
 colors:
   primary: "#0868cf"
   primary-hover: "#0553ab"
@@ -16,6 +16,8 @@ colors:
   danger: "#b52e38"
   scroll-thumb: "#a8b5c5"
   scroll-track: "#edf1f5"
+  satellite-background: "#fafbfc"
+  orbit-line: "#dce2e9"
 typography:
   sans:
     fontFamily: "Segoe UI, Microsoft YaHei UI, Microsoft YaHei, sans-serif"
@@ -41,7 +43,7 @@ components:
 
 ### Creative North Star
 
-工具窗口以内容和常用操作为主：顶部为截图、文件管理、设置按钮；左侧只列设备，右侧为对话。移除宣传口号、装饰叠纸空状态和大标题。参考 Apple 桌面侧栏和工具栏的信息层级，保留 Windows 窗口与键盘习惯。来源：用户要求 Apple 风格及社区 skill https://github.com/tzzs/apple-design-skill ，不是 Apple 官方组件实现。
+首页以用户选择的设备卫星图为视觉目标：本机居中，已配对和附近设备位于两条淡灰轨道，默认只显示设备图。聊天、文件和设置页面保留紧凑工具布局，截图位于聊天输入区。移除宣传口号、装饰叠纸空状态和大标题。参考 Apple 桌面侧栏和工具栏的信息层级，保留 Windows 窗口与键盘习惯。来源：用户要求 Apple 风格及社区 skill https://github.com/tzzs/apple-design-skill ，不是 Apple 官方组件实现。
 
 ### Product context and register
 
@@ -59,7 +61,7 @@ Segoe UI 搭配微软雅黑；标题 16–18px、对话设备名 14px、正文 1
 
 ## Layout
 
-桌面外壳固定视口，58px 顶栏、210px 设备栏与可伸缩内容区；小于 1000px 时设备栏 180px。最低窗口 780×580。聊天记录、文件表格和设置页分别拥有滚动区域。表格每页 50 行，工具栏和页码不随列表滚出。
+桌面外壳固定视口，58px 顶栏与可伸缩内容区；聊天页不显示设备侧栏，文件和设置页保留 210px 设备栏；小于 1000px 时设备栏 180px。最低窗口 780×580。聊天记录、文件表格和设置页分别拥有滚动区域。表格每页 50 行，工具栏和页码不随列表滚出。
 
 ## Elevation & Depth
 
@@ -71,7 +73,7 @@ Segoe UI 搭配微软雅黑；标题 16–18px、对话设备名 14px、正文 1
 
 ## Components
 
-按钮由 .button 统一处理尺寸、禁用、悬停、按压和焦点；.primary 是安全主操作。搜索统一清除按钮；下拉使用原生 Windows 选择器，接受系统弹出层样式。模态框使用 HTML dialog/showModal，统一 modal() 负责取消、busy、错误与焦点。通知使用唯一 #toast live region。SVG 图标为项目手绘线图标，无 Apple SF 字体依赖。动画仅 120ms 颜色反馈，reduced-motion 禁用。中文直接使用具体动词，不显示内部协议词汇。
+按钮由 .button 统一处理尺寸、禁用、悬停、按压和焦点；.primary 是安全主操作。搜索统一清除按钮；下拉统一使用 ui/controls 的 React Bits Glide Select，负责弹层与键盘交互；原生 select 仅作隐藏的数据桥接。模态框使用 HTML dialog/showModal，统一 modal() 负责取消、busy、错误与焦点。通知使用唯一 #toast live region。功能图标来自 Lucide 的官方静态 SVG，由 scripts/build-icons.cjs 统一输出；不使用字体图标。常规控件使用 120ms 颜色反馈；卫星图采用下述弹性入场与慢速轨道，reduced-motion 禁用。中文直接使用具体动词，不显示内部协议词汇。
 
 ## Do's and Don'ts
 
@@ -81,3 +83,55 @@ Segoe UI 搭配微软雅黑；标题 16–18px、对话设备名 14px、正文 1
 - 不以假在线设备或假进度装饰页面。
 
 聊天中的已完成图片通过受限本地协议加载，保持长宽比，object-fit: contain；点击查看大图。文件和压缩包用各自的 SVG 图标与文件名表示。
+
+截图入口与文件附件操作同处聊天输入区工具栏。统一 tooltip 在悬停或键盘焦点时显示当前快捷键，Escape 可关闭，位置不引起布局跳动。
+
+## Satellite homepage
+
+Visual source: D:/Lantern/design/device-satellite-home-v1.png, explicitly selected by the user. No raster assets are required for the interactive graph; the rings are data-visualization geometry. Desktop/laptop/back icons now use official Lucide SVG assets, copied into assets/icons with the ISC notice.
+
+Owner: ui/satellite.js SatelliteMap. Runtime map colors live in ui/satellite.css and mirror the corresponding colors above; remaining tokens come from ui/style.css. Self circle is about 192px and peer circles about 88px at the 1487×1058 reference size, scaling responsively with the map. Two initial orbit radii are about 265px and 408px.
+
+The default homepage shows the graph and two compact top-right actions: Refresh and Manual connection. The center is a static, non-focusable local-computer marker. Manual connection exposes the local pairing code and a Local information action for addresses, fingerprint, settings and files. Unpaired nodes open the existing pairing form; paired nodes open chat, including offline history.
+
+Motion: positions remain static at rest for crisp labels; elastic entry and direct zoom/pan interaction remain. Permanent orbit/counter-rotation was removed during the clarity revision. Homepage entrance reveals the local marker at 0ms, inner ring at 260ms, outer ring at 560ms, using 700/760ms spring-like scale keyframes with overshoot. Peer arrival/departure uses 620/200ms opacity/scale; panel transitions use 160ms. Ring buttons remain inert during entrance. Chat has no device sidebar; choose other devices from the homepage. Reduced-motion removes these animations. Stable node DOM is retained during one-second state refreshes. Wheel zoom, background dragging, double-click/0 reset are supported without adding toolbar controls.
+
+## Chat revision 0.3.2
+
+Explicit user reference: D:/Lantern/design/chat-composer-reference.png. Recreate its restrained light-gray rounded input surface, top text area and bottom action row. Composer uses #f5f5f5, 23px radius and 14/16/12px padding. Preserve the existing screenshot/file/folder, drag/drop, paste, attachments, Enter/Shift+Enter and send capabilities; do not import model selectors, microphone or extra actions from the reference. The blue 36px upward-arrow send button uses the existing brand color. Existing system typography and Fluent icons stay canonical.
+
+Conversation navigation occupies one topbar: Back plus selected device name/status on the left; file management/settings on the right. No brand mark/name or repeated conversation heading in chat. Other pages retain their brand navigation. Image previews use a viewport-sized dialog with dark backdrop, an uncropped image, zoom controls, previous/next and a close control. No generic form frame, title row or open-file footer. Image fit is preserved initially; zoom scrolls within the stage.
+
+## Accepted logo and back navigation 0.3.3
+
+The user selected the blue-to-teal infinity mark with subtle over/under crossing, without data particles. Exact selected reference: D:/Lantern/design/logos/selected-infinity.png. Transparent production derivative: selected-infinity-cutout.png. Runtime assets/logo.png and multi-resolution assets/icon.ico derive from it. Use this logo for brand navigation, Windows window/taskbar and executable/shortcut icon. Chat retains Back/device text and does not reintroduce the brand in its header.
+
+Back is a neutral toolbar action, not a selected navigation tab. It uses 34px minimum height, 10px horizontal padding, 5px corner radius, transparent rest, background-token hover with ink text, line-token press, and no press translation. Keyboard focus uses a 2px primary outline with 2px offset. Geometry is stable in every state. This corrects the previous edge-hugging blue hover shown in the user's screenshot.
+
+## Shared controls 0.3.4
+
+The user selected React Bits Glide Select (https://www.reactbits.dev/micro/glide-select) and Squish Switch (https://www.reactbits.dev/micro/squish-switch). Their official JS/CSS source is integrated in ui/controls, with React/Motion bundled into isolated control roots. The remaining application keeps its current HTML/JS owners. Original license is included in assets/licenses/REACT-BITS-LICENSE.md, along with bundled runtime license notices.
+
+Canonical runtime owner: ui/controls/theme.css, emitted in controls.bundle.css after application/satellite styles. --control-radius is 8px for command buttons. Rest/selected/primary colors keep their semantic roles; every command uses the same 120ms inset-overlay hover/press feedback and no press displacement. The image-viewer dark surface uses the same mechanism with an inverse-light overlay for contrast. Device graph nodes remain graphical targets with their accepted circular-face behavior, and the selected Squish Switch retains its own pill/elastic geometry.
+
+Text inputs, search and textarea have no border, outline or focus shadow. Ordinary fields use #f4f5f7 fill and #edf1f6 focus fill with primary caret; search shares its surrounding fill. The reference-style chat composer keeps its existing shape and no focus contour. Buttons and switches retain keyboard focus indication.
+
+Glide uses a white surface, neutral sliding highlight, primary checkmark, 34px trigger, 30px rows, 180ms pop and 220ms glide. Menus use the browser top layer, flip above/below and clamp to the viewport, including inside dialogs. Fluent icons replace Hugeicons to share existing assets. All four file filters and the dynamic send-target selector use the same component.
+
+Squish uses a 52x28px track, white thumb, gray off/blue on state, with the upstream stretch and spring behavior. Pointer drag, keyboard toggle and Escape cancel work. Reduced motion suppresses translation/stretch and hover scaling. Official controlled-value semantics are bridged to the existing auto-receive setting; no persistence/API rules changed.
+
+## Chat image states 0.3.5
+
+Explicit reference: React Bits Refine Frame, https://www.reactbits.dev/micro/refine-frame?status=refining. Its official JSX/CSS is shared in ui/controls/RefineFrame, consumed only by ImageTransferFrame in the chat timeline. No generated-image or AI terminology is shown. Real transfer state and decoded-image state select queued/refining/complete/error, with Chinese progress labels. Known outgoing image paths can render locally during sending; incoming partial files remain inaccessible.
+
+Frames preserve natural aspect and contain-fit image/mosaic pixels, capped at 340px width and 420px height without upscaling small images. Unknown incoming dimensions use a 300px 4:3 placeholder, then adapt once to decoded dimensions; this limitation is explicit rather than claiming dimension-free layout stability. A content wrapper gives the frame a definite intrinsic width, preventing shrink-to-min-content collapse. Small images keep their readable metadata outside the image and use an outside retry action when a chip/button would not fit.
+
+Progress updates preserve image-root identity across timeline updates; a completed image does not replay on every poll or incoming message. Mosaic transitions use 90ms stages, stop their RAF when the stage target is reached, release intermediate canvases after completion and cap DPR at 1.5. Reduced-motion changes are observed live; no rotating/sweeping/mosaic transition is required in reduced mode. Group semantics retain the preview button and retry action in the accessibility tree. Completion returns to the original uncropped image/gallery flow.
+
+## Clarity, icons and errors 0.3.6
+
+All command/device/file/status glyphs use the official lucide-static package. scripts/build-icons.cjs owns inline icon markup, CSS mask aliases and provenance manifest; build-ui invokes it. The selected custom infinity brand logo remains a brand asset, not a command glyph. Assets/licenses/LUCIDE-LICENSE.txt is distributed; old Fluent dependency/assets are removed.
+
+Remove blur animation from all text/status labels. At rest, the satellite canvas has no identity transform/will-change promotion, and orbit/counter motion is disabled. Entry wrappers discard their animation transforms after completing; node positions snap to the physical pixel grid. Device text uses a standard 600 weight. Hover uses color/border feedback rather than permanently scaling icons. Completed Refine Frame media has filter/transform none; only the explicitly requested loading-image refinement remains animated.
+
+Errors shown in dialogs, toasts, timeline and file operations use core/errors.cjs via a small shared browser bundle. Native filesystem codes, paths, IPC prefixes and call stacks never appear as user instructions. Known cases explain disk space, permissions, missing files, connection failure and cross-volume compatibility. Raw diagnostic details remain local. Existing failed-job messages are sanitized in snapshots and at the renderer boundary.

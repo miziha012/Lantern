@@ -1,0 +1,3 @@
+const path=require('node:path');const {execFileSync}=require('node:child_process');
+// Use the locally installed resource editor; no signing-tools download is needed.
+module.exports=async context=>{if(context.electronPlatformName!=='win32')return;const version=context.packager.appInfo.version;execFileSync(require.resolve('electron-winstaller/vendor/rcedit.exe'),[path.join(context.appOutDir,'Lantern.exe'),'--set-icon',path.resolve(__dirname,'../assets/icon.ico'),'--set-file-version',version,'--set-product-version',version,'--set-version-string','ProductName','Lantern','--set-version-string','FileDescription','Lantern'],{stdio:'inherit'});};

@@ -7,7 +7,11 @@ test('两个真实 HTTPS 实例：配对、拒绝未授权、聊天、证书锁�
   try{await a.start(0,false);await b.start(0,false);const target={host:'127.0.0.1',port:b.port,fingerprint:b.fingerprint};
     await assert.rejects(request(target,'/message',{id:crypto.randomUUID(),text:'不该到达'}),/未配对/);
     await assert.rejects(a.pair({...target,code:'000000'}),/配对码/);
-    await a.pair({...target,code:b.code});const peer=a.state.peers[0];assert.equal(peer.id,b.state.id);
+    await a.directory.observe({addresses:['127.0.0.1'],port:b.port,txt:{id:crypto.randomUUID(),name:'旧缓存'}});
+    await a.directory.observe({addresses:['127.0.0.1'],port:b.port,txt:{id:crypto.randomUUID(),name:'重复广播'}});
+    assert.equal(a.snapshot().discovered.length,1);assert.equal(a.snapshot().discovered[0].id,b.state.id);
+    await a.pair({...target,code:b.code});const peer=a.state.peers[0];assert.equal(peer.id,b.state.id);assert.equal(a.snapshot().discovered.length,0);
+    const firstRefresh=a.refreshDevices();assert.strictEqual(a.refreshDevices(),firstRefresh,'并发刷新复用任务');const refreshed=await firstRefresh;assert.equal(refreshed.peers[0].online,true);assert.equal(refreshed.discovered.length,0);
     await a.message(peer.id,'你好，局域网 <script>安全文本</script>');assert.equal(b.state.messages[0].text,a.state.messages[0].text);assert.equal(a.state.messages[0].status,'已送达');
     await assert.rejects(request({...peer,fingerprint:'BAD'},'/ping',undefined,'GET'),/证书/);
     const source=path.join(root,'测试文件.bin'),bytes=crypto.randomBytes(2*1024*1024+37);await fs.writeFile(source,bytes);await a.send(peer.id,[source]);await until(()=>a.state.transfers[0].status==='已完成');const incoming=b.state.transfers[0];assert.equal(incoming.status,'已完成');assert.deepEqual(await fs.readFile(incoming.path),bytes);

@@ -5,9 +5,11 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const {EventEmitter} = require('node:events');
+const {DiscoveryDirectory} = require('./discovery.cjs');
 const {pipeline} = require('node:stream/promises');
 const {Transform} = require('node:stream');
-const {safeRelative, uniquePath, walk} = require('./files.cjs');
+const {safeRelative, uniquePath, walk, finalizeReceived} = require('./files.cjs');
+const {userMessage}=require('./errors.cjs');
 const uuid = () => crypto.randomUUID();
 const validId = id => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id);
 async function hashFile(file) { const hash = crypto.createHash('sha256'); for await(const chunk of fs.createReadStream(file)) hash.update(chunk); return hash.digest('hex'); }
@@ -34,7 +36,7 @@ function request(peer, route, data, method = 'POST', raw = false) {
       if(peer.fingerprint && socket.getPeerCertificate().fingerprint256 !== peer.fingerprint) req.destroy(Error('设备证书发生变化，请重新配对'));
       else req.end(payload);
     }));
-    req.setTimeout(20000, () => req.destroy(Error('连接超时，请检查对方电脑和防火墙')));
+    req.setTimeout(peer.timeoutMs||20000, () => req.destroy(Error('连接超时，请检查对方电脑和防火墙')));
     req.on('error',reject);
   });
 }
@@ -57,22 +59,27 @@ class Engine extends EventEmitter {
     if(fs.existsSync(certPath)) identity=JSON.parse(fs.readFileSync(certPath));
     else { identity=await require('selfsigned').generate([{name:'commonName',value:'Lantern LAN'}],{keySize:2048,days:3650,algorithm:'sha256'}); fs.writeFileSync(certPath,JSON.stringify(identity),{mode:0o600}); }
     this.fingerprint=new crypto.X509Certificate(identity.cert).fingerprint256;
+    this.directory=new DiscoveryDirectory({selfId:this.state.id,selfFingerprint:this.fingerprint,entries:this.discovered,lookup:(host,port)=>request({host,port,timeoutMs:2500},'/hello',undefined,'GET')});
     this.server=https.createServer({key:identity.private,cert:identity.cert},(req,res)=>this.route(req,res));
     this.server.requestTimeout=30000;this.server.headersTimeout=15000;
     await new Promise((resolve,reject)=>{this.server.once('error',reject);this.server.listen(port,'0.0.0.0',resolve);});
     this.port=this.server.address().port;
     this.timer=setInterval(()=>{if(Date.now()>this.codeExpires)this.rotateCode();},1000); this.timer.unref();
-    if(discovery){ const {Bonjour}=require('bonjour-service'); this.bonjour=new Bonjour({},e=>this.emit('warning','自动发现不可用，请手动连接：'+e.message));
+    if(discovery){ const {Bonjour}=require('bonjour-service'); this.bonjour=new Bonjour({},e=>{this.options.logError?.(e,'discovery');this.emit('warning','自动发现暂不可用，请使用手动连接添加设备。');});
       this.service=this.bonjour.publish({name:`Lantern-${this.state.id}`,type:'lantern',port:this.port,txt:{id:this.state.id,name:this.state.name,v:'1'}});
-      this.browser=this.bonjour.find({type:'lantern'},service=>{if(service.txt.id===this.state.id)return; const host=service.addresses.find(a=>/^\d+\./.test(a)); if(host)this.discovered.set(service.txt.id,{id:service.txt.id,name:service.txt.name,host,port:service.port,lastSeen:Date.now()});});
-      this.browser.on('down',s=>this.discovered.delete(s.txt.id));
-      this.discoveryTimer=setInterval(()=>this.browser.update(),15000);this.discoveryTimer.unref();
+      this.browser=this.bonjour.find({type:'lantern'},service=>{this.directory.observe(service);});
+      this.browser.on('down',service=>this.directory.remove(service));
+      this.browser.on('srv-update',(service,previous)=>{this.directory.remove(previous);this.directory.observe(service);});
+      this.browser.on('txt-update',service=>this.directory.observe(service));
+      this.discoveryTimer=setInterval(()=>{this.browser.expire();this.browser.update();for(const service of this.browser.services)this.directory.observe(service);this.directory.refresh();},10000);this.discoveryTimer.unref();
     }
     this.presenceTimer=setInterval(()=>this.presence(),5000);this.presenceTimer.unref(); this.presence(); return this;
   }
   publicInfo(){return {id:this.state.id,name:this.state.name,port:this.port,v:1};}
-  snapshot(){return {...this.state,peers:this.state.peers.map(({token,...p})=>p),discovered:[...this.discovered.values()],port:this.port,code:this.code,codeExpires:this.codeExpires,fingerprint:this.fingerprint,addresses:Object.values(os.networkInterfaces()).flat().filter(a=>a.family==='IPv4'&&!a.internal).map(a=>a.address)};}
-  async presence(){for(const peer of this.state.peers){const found=this.discovered.get(peer.id);if(found){peer.host=found.host;peer.port=found.port;} try{const info=await request(peer,'/ping',undefined,'GET');if(info.id!==peer.id)throw Error('身份不匹配');peer.online=true;}catch{peer.online=false;} } }
+  snapshot(){return {...this.state,messages:this.state.messages.map(item=>({...item,error:item.error?userMessage(item.error):''})),transfers:this.state.transfers.map(item=>({...item,error:item.error?userMessage(item.error):''})),peers:this.state.peers.map(({token,...p})=>p),discovered:this.directory?this.directory.snapshot(this.state.peers):[],port:this.port,code:this.code,codeExpires:this.codeExpires,fingerprint:this.fingerprint,addresses:[...new Set(Object.values(os.networkInterfaces()).flat().filter(a=>a.family==='IPv4'&&!a.internal).map(a=>a.address))]};}
+  presence(){if(this.presenceTask)return this.presenceTask;this.presenceTask=Promise.allSettled(this.state.peers.map(async peer=>{const found=[...this.discovered.values()].find(candidate=>candidate.id===peer.id&&candidate.fingerprint===peer.fingerprint);if(found){peer.host=found.host;peer.port=found.port;}try{const info=await request({...peer,timeoutMs:2500},'/ping',undefined,'GET');if(info.id!==peer.id)throw Error('身份不匹配');peer.online=true;}catch{peer.online=false;}})).finally(()=>{this.presenceTask=null;});return this.presenceTask;}
+  refreshDevices(){if(this.refreshTask)return this.refreshTask;this.refreshTask=(async()=>{this.browser?.update();if(this.browser)await new Promise(resolve=>setTimeout(resolve,350));let deadline;try{await Promise.race([Promise.allSettled([this.directory?.refresh(),this.presence()]),new Promise(resolve=>{deadline=setTimeout(resolve,4000);})]);}finally{clearTimeout(deadline);}return this.snapshot();})().finally(()=>{this.refreshTask=null;});return this.refreshTask;}
+
   async route(req,res){
     const reply=(status,data)=>{if(!res.headersSent){res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));}};
     try{
@@ -104,7 +111,7 @@ class Engine extends EventEmitter {
         if(!t){t={id:input.id,name:input.name,size:input.size,hash:input.hash,peerId:peer.id,direction:'in',offset:0,status:this.state.settings.autoReceive?'准备中':'等待接收',time:Date.now(),root:this.state.settings.downloadDir};this.state.transfers.push(t);this.save();}
         if(t.hash!==input.hash||t.size!==input.size||t.name!==input.name)throw Error('文件已变化，请重新发送');
         const part=path.join(this.dir,t.id+'.part');
-        if(!['已完成','已取消','等待接收'].includes(t.status)){t.offset=fs.existsSync(part)?fs.statSync(part).size:0;t.status='准备中';}
+        if(!['已完成','已取消','等待接收'].includes(t.status)){t.offset=fs.existsSync(part)?fs.statSync(part).size:0;t.status='准备中';t.error='';}
         return reply(200,{offset:t.offset,status:t.status});
       }
       if(req.method==='PUT'&&url.pathname.startsWith('/chunk/')){
@@ -116,21 +123,21 @@ class Engine extends EventEmitter {
           const bytes=await body(req,1024*1024);if(t.status==='已取消')throw Error('任务已取消');if(!bytes.length&&t.offset!==t.size||t.offset+bytes.length>t.size)throw Error('文件块大小无效');
           await fsp.appendFile(path.join(this.dir,id+'.part'),bytes);t.offset+=bytes.length;if(t.status==='已取消')throw Error('任务已取消');t.status='传输中';
           if(t.offset===t.size){t.status='校验中';if(await hashFile(path.join(this.dir,id+'.part'))!==t.hash){await fsp.unlink(path.join(this.dir,id+'.part'));t.offset=0;t.status='失败';throw Error('文件校验失败，请重试');}
-            if(t.status==='已取消')throw Error('任务已取消');t.path=await uniquePath(t.root,t.name);await fsp.rename(path.join(this.dir,id+'.part'),t.path);t.status='已完成';}
+            if(t.status==='已取消')throw Error('任务已取消');t.path=await finalizeReceived(path.join(this.dir,id+'.part'),t.root,t.name,t,{onCleanupError:error=>this.options.logError?.(error,'receive-cleanup')});t.status='已完成';t.error='';}
           this.save();return reply(200,{offset:t.offset,status:t.status});
-        }finally{this.writing.delete(id);}
+        }catch(error){if(t.status!=='已取消'){t.status='失败';t.error=userMessage(error);}this.save();throw error;}finally{this.writing.delete(id);}
       }
       if(req.method==='POST'&&url.pathname.startsWith('/cancel/')){const t=this.state.transfers.find(t=>t.id===url.pathname.slice(8)&&t.peerId===peer.id&&t.direction==='in');if(t&&t.status!=='已完成'){t.status='已取消';this.save();}return reply(200,{ok:true});}
       reply(404,{error:'不支持的请求'});
-    }catch(e){reply(400,{error:e.message});}
+    }catch(e){this.options.logError?.(e,'request');reply(400,{error:userMessage(e)});}
   }
   async inspect(host,port){if(typeof host!=='string'||!host.trim()||!Number.isInteger(port)||port<1||port>65535)throw Error('请输入有效地址和端口');return request({host,port},'/hello',undefined,'GET');}
   async pair(input){const info=await request(input,'/pair',{...this.publicInfo(),fingerprint:this.fingerprint,code:input.code});
     const peer={...info,host:input.host,port:input.port,online:true};delete peer.v;this.state.peers=this.state.peers.filter(p=>p.id!==peer.id);this.state.peers.push(peer);this.save();return peer.id;}
   peer(id){const p=this.state.peers.find(p=>p.id===id);if(!p)throw Error('请先选择已配对设备');return p;}
-  async message(peerId,text){if(typeof text!=='string'||!text.trim()||text.length>16000)throw Error('消息不能为空且不能超过 16000 字');const p=this.peer(peerId),msg={id:uuid(),peerId,text,time:Date.now(),direction:'out',status:'发送中'};this.state.messages.push(msg);this.save();try{await request(p,'/message',msg);msg.status='已送达';}catch(e){msg.status='失败';msg.error=e.message;}this.save();}
+  async message(peerId,text){if(typeof text!=='string'||!text.trim()||text.length>16000)throw Error('消息不能为空且不能超过 16000 字');const p=this.peer(peerId),msg={id:uuid(),peerId,text,time:Date.now(),direction:'out',status:'发送中'};this.state.messages.push(msg);this.save();try{await request(p,'/message',msg);msg.status='已送达';}catch(e){msg.status='失败';msg.error=userMessage(e);this.options.logError?.(e,'message');}this.save();}
   async send(peerId,paths){this.peer(peerId);const items=[];for(const p of paths)items.push(...await walk(p));for(const item of items){safeRelative(item.name);const t={...item,id:uuid(),peerId,direction:'out',offset:0,time:Date.now(),status:'准备中'};this.state.transfers.push(t);this.save();this.run(t).catch(e=>this.fail(t,e));}return items.length;}
-  fail(t,e){if(t.status!=='已取消'){t.status='失败';t.error=e.message;}this.save();}
+  fail(t,e){if(t.status!=='已取消'){t.status='失败';t.error=userMessage(e);this.options.logError?.(e,'send');}this.save();}
   async run(t){if(this.active.has(t.id))return;this.cancelled.delete(t.id);while(this.active.size>=3){if(this.cancelled.has(t.id))return;await new Promise(r=>setTimeout(r,150));}if(this.cancelled.has(t.id))return;this.active.set(t.id,true);
     try{const p=this.peer(t.peerId);t.status='校验中';t.error='';this.save();const stat=await fsp.stat(t.path);if(stat.size!==t.size||stat.mtimeMs!==t.modified)throw Error('源文件已变化，请重新选择发送');t.hash=await hashFile(t.path);
       let remote=await request(p,'/offer',{id:t.id,name:t.name,size:t.size,hash:t.hash});
@@ -144,6 +151,6 @@ class Engine extends EventEmitter {
   async cancel(id){const t=this.state.transfers.find(t=>t.id===id);if(!t||t.status==='已完成')return;this.cancelled.add(id);t.status='已取消';this.save();if(t.direction==='out')await request(this.peer(t.peerId),'/cancel/'+id,{}).catch(()=>{});}
   retry(id){const t=this.state.transfers.find(t=>t.id===id&&t.direction==='out');if(!t||this.active.has(id))return;if(t.status==='已取消'){t.id=uuid();t.offset=0;}t.status='准备中';this.save();this.run(t).catch(e=>this.fail(t,e));}
   accept(id,accept){const t=this.state.transfers.find(t=>t.id===id&&t.direction==='in'&&t.status==='等待接收');if(t){t.status=accept?'准备中':'已取消';this.save();}}
-  async close(){clearInterval(this.timer);clearInterval(this.discoveryTimer);clearInterval(this.presenceTimer);this.bonjour?.destroy();for(const id of this.active.keys())this.cancelled.add(id);if(this.server)await new Promise(r=>this.server.close(r));}
+  async close(){clearInterval(this.timer);clearInterval(this.discoveryTimer);clearInterval(this.presenceTimer);this.directory?.close();this.bonjour?.destroy();for(const id of this.active.keys())this.cancelled.add(id);if(this.server)await new Promise(r=>this.server.close(r));}
 }
 module.exports={Engine,request,hashFile};
