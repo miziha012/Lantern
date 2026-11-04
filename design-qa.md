@@ -92,3 +92,64 @@ User-readable error formatting is shared across engine snapshots/protocol errors
 Packaged desktop regression and narrow/reduced-motion controls pass. A current desktop capture source lacks display_id despite a single valid monitor; only the unambiguous one-monitor/one-source fallback is used. The current OS clipboard rejects a standalone native 40x30 image write (immediate and delayed reads empty). Positive clipboard copy/paste tests are explicitly skipped, not reported successful; instead the readable unavailable message and cancel are tested. That limitation appears in README and release notes. The 125% selection geometry and prior successful-pixel evidence are retained, but this release does not claim current-host positive clipboard coverage.
 
 The user explicitly authorized publishing this revision. Source audit still reports known external-event-binding affordance warnings; runtime interaction verification, not a clean strict-static claim, is the evidence. Release remains a Windows x64 preview with physical dual-PC, Windows 10 and mixed-DPI field testing outstanding.
+
+## Local 0.3.7
+
+- Verified chat-layout-qa.cjs against real Electron: one/three/five/six lines, wrapped text, delete shrink, draft restoration, send reset, Shift+Enter, narrow viewport, shared scrollbar pseudo styling and brand hover inset. Reviewed desktop composer and brand-hover screenshots.
+- Packaged local-0.3.7 Windows application passed the real pairing/chat/files/settings/images/capture E2E suite with no renderer errors. This run positively verified clipboard copying and exact capture pixels at 125% scaling (selection 200x120 CSS pixels, clipboard 250x150 pixels).
+- Source syntax/build passed. Current revision remains local; no GitHub publication.
+
+## Local 0.3.8
+
+Composer animation checked in real Electron: intermediate growth frame, 180ms timing, interrupted retargeting, shrink, five-line cap and live reduced-motion cancellation. Existing composer/draft/scrollbar checks pass. Packaged local-0.3.8 passed pairing/chat/files/settings/images/capture E2E with no renderer errors and positive clipboard/exact-pixel capture verification. No publication.
+
+## Settings and satellite 0.3.9 — selected visual implementation
+
+- Source visual truth: D:/Lantern/design/settings-layout/settings-design-3.png, 1487x1058 pixels. User changes: section navigation scrolls to anchors rather than switching tab panels; add current pairing-code copy.
+- Implementation: qa/settings-general-0.3.9.png, 1487x1058 CSS/pixel viewport, Playwright screenshot scale=css. Native Windows display scale is normalized by CSS screenshot capture. No image stretching/density mismatch in comparison.
+- State: settings/general, auto-receive on, two paired devices below the fold. Source mock name differs from fixture name intentionally. Connections remain below general in the same scrolling page, superseding source hidden-tab interpretation. Topbar and footer retain real desktop app controls and sizes rather than new prototype chrome.
+- Combined full-view comparison: qa/settings-comparison-final-0.3.9.png (2974x1058); source left, implementation right. Focused comparison: qa/settings-detail-final-0.3.9.png, ordinary inputs/labels, switch, path row, divider spacing. Also inspected qa/settings-connections-0.3.9.png, qa/settings-narrow-0.3.9.png and qa/files-no-sidebar-0.3.9.png.
+
+### Comparison history and fixes
+
+Initial comparison qa/settings-comparison-0.3.9.png found P2 native borders on anchor buttons, a denser/smaller initial type and spacing hierarchy, and P1 empty connection fields until the next snapshot poll. Anchor click also hit the scroll end before aligning the connection section. Fixed button border/background ownership, widened content to 1100px, increased descriptions to 16px, inputs to 15px, titles to 32/22px, expanded row rhythm, filled connection details immediately on entry, and gave the final section enough height to align below the sticky anchors. Recaptured and compared the final combined/full and detail images; no actionable P0/P1/P2 findings remain.
+
+### Fidelity surfaces
+
+- Typography: actual computed Segoe UI / Microsoft YaHei UI / Microsoft YaHei, 16px descriptions, 15px inputs, 13px helper text; headings 32/22px. Maintains the app's readable utility scale instead of copying generated text rasterization. Pair code uses clear 27px mono digits. No blurry rotating text.
+- Spacing/layout: centered flat white layout, aligned description/control columns, thin separators, common 8px button radius. General and connection regions remain vertically arranged, with sticky anchors and full-width workspace. 780x580 no horizontal overflow; content scrolls vertically.
+- Colors/tokens: existing blue #0868CF, dark #202733, muted #657183, white surfaces and pale borderless fields reused. Native black button outlines removed; keyboard focus retained.
+- Images/icons: actual selected infinity logo asset and official Lucide glyphs; no generated screenshot used as a live UI. Existing Squish Switch remains functional.
+- Copy: actual Chinese setting descriptions preserved, including restart requirement for device broadcast name. Removed source tab-navigation footnote because content now lives in the same page. Connection info/forget confirmation and readable copy failure text use actual app behavior.
+
+### Behavior verification
+
+- scripts/settings-qa.cjs: both regions present, sticky scroll anchors, manual scrollspy, keyboard/smooth scrolling, draft survives scrolling/poll, initial code/address populated, fresh main-process code copied to real text clipboard, readable/retryable clipboard failure, field validation, switch/name/shortcut save, directory selection, forget confirmation/cancel, no sidebar in both workspaces, narrow overflow checks. No renderer errors.
+- scripts/satellite-qa.cjs: ordered spring entrance, moving coordinates, physical-pixel alignment, hover/focus pause, stable refresh, upright text, zoom/pan/reset, device arrival/departure, reduced motion and narrow viewport. LANTERN_DISCOVERY=0.
+- scripts/chat-layout-qa.cjs: existing auto-height/animation and other composer behavior pass after workspace changes.
+- Packaged release/local-0.3.9/win-unpacked/Lantern.exe: real E2E pairing, chat, transfers, files, settings, anchor navigation and copied current code, image gallery and screenshots pass; positive clipboard image verification and exact 125% scaled crop pixels; no renderer errors.
+- Build/syntax passed. Static audit retains actionless-button findings because its HTML scanner does not resolve external JS handlers; relevant runtime actions above are exercised, so this is not a claim of a clean static audit.
+
+Follow-up polish: generated mock text weight differs slightly from Windows-native font rendering; existing shared type/control tokens intentionally take precedence. No required work remains for this scope. Revision remains local, no GitHub publication.
+
+final result: passed
+
+## Compact settings 0.3.11
+
+User refinement supersedes the spacious reference rhythm: reduce width, group/row spacing and field size, retaining the selected page structure. Combined equal-size comparison: qa/settings-density-0.3.11.png, previous implementation left and compact implementation right, each 1487x1058 CSS pixels. Current captures: qa/settings-general-0.3.11.png, qa/settings-connections-0.3.11.png and qa/settings-narrow-0.3.11.png. Reviewed full layout plus native-resolution narrow fields, switch and anchor alignment.
+
+Typography uses 26/18/14px headings/labels and 12px helpers; shared Windows font family, blue/white/pale-input tokens and official logo/Lucide assets remain intact. Main width is 960px vs 1164px, row height 56px vs 76px, groups have 22px vs 34px vertical padding, and the switch aligns with the input-column start. This concentrates related controls while retaining legible labels, uncropped paths and keyboard targets. No new features or copy changes. Clicking 常规 now returns to scrollTop=0 so the title is fully visible; connection anchor remains sticky, aligned and scroll-tracked. Narrow 780x580 layout has no horizontal overflow.
+
+Verification: build/syntax and settings interaction suite passed (anchors, scrollspy, draft preservation, current code real clipboard copy, readable failure/retry, field validation/save, switch, directory, forget cancel and no sidebars). Packaged release/local-0.3.11/win-unpacked/Lantern.exe passed controls/narrow popup and reduced-motion switch checks, with no renderer errors. No actionable P0/P1/P2 findings. No GitHub publication.
+
+final result: passed
+
+## Left alignment and natural page end 0.3.12
+
+User refinement: align settings to the left and remove the large bottom blank. Runtime owner ui/controls/theme.css now uses margin:0 for the compact content block and no viewport-based min-height for settings-connections. The existing end-of-scroll current-anchor rule handles the final section without extra empty content. The previous requirement to force the last anchor to the top is superseded by this user request.
+
+Evidence: qa/settings-general-0.3.12.png and qa/settings-connections-0.3.12.png (1487x1058 CSS-pixel fixture screenshots); qa/settings-narrow-0.3.12.png at 780x580; qa/settings-packaged-0.3.12.png from the actual build. Reviewed left margin, natural content end, sticky/current anchor and copy controls. Existing typography, labels, white/blue tokens, logo and Lucide assets are unchanged; layout now starts at 28px rather than centering. No clipping or horizontal overflow.
+
+Build/syntax passed. Settings suite passed with explicit left-inset and final-content-gap checks, plus unchanged form, clipboard and navigation coverage. Packaged release/local-0.3.12/win-unpacked/Lantern.exe verified 28px left inset and 72.6px after the last empty-state content (normal paragraph/group/container spacing), rather than a viewport-sized spacer; current anchor, copying the live code and returning to general scrollTop=0 all pass with no renderer errors. No GitHub publication. No actionable P0/P1/P2 findings.
+
+final result: passed

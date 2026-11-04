@@ -1,6 +1,6 @@
 {
   "name": "lantern-lan",
-  "version": "0.3.6",
+  "version": "0.3.12",
   "private": true,
   "description": "Lantern · 局域网聊天与文件管理",
   "author": "Lantern",
@@ -20,6 +20,8 @@
     "pretest:e2e": "npm run build:ui",
     "pretest:satellite": "npm run build:ui",
     "precheck": "npm run build:ui",
+    "test:settings": "node scripts/settings-qa.cjs",
+    "pretest:settings": "npm run build:ui",
     "test:controls": "node scripts/controls-qa.cjs",
     "pretest:controls": "npm run build:ui",
     "test:images": "node scripts/image-frame-qa.cjs",

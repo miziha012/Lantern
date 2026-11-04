@@ -4,11 +4,11 @@
   const position=index=>slots[index]||{ring:2+Math.floor((index-8)/8),angle:-135+((index-8)%8)*45};
   class SatelliteMap {
     constructor(root,handlers) {
-      this.root=root;this.handlers=handlers;this.records=new Map();this.layers=new Map();this.zoom=1;this.pan={x:0,y:0};this.fit=1;this.drag=null;this.hasState=false;this.motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+      this.root=root;this.handlers=handlers;this.records=new Map();this.layers=new Map();this.zoom=1;this.pan={x:0,y:0};this.fit=1;this.drag=null;this.hasState=false;this.orbitFrame=0;this.lastOrbitTime=0;this.motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
       this.canvas=make('div','orbit-canvas');this.tracks=make('div','orbit-tracks');this.tracks.setAttribute('aria-hidden','true');this.canvas.append(this.tracks);
       this.self=make('div','satellite-self');this.selfEntry=make('div','self-entry');this.selfNode=make('div','device-node self-device');this.selfNode.id='local-device';this.selfNode.setAttribute('role','img');
       this.selfNode.innerHTML='<span class="node-face"><span class="device-symbol" aria-hidden="true"></span></span><span class="device-copy"><strong>这台电脑</strong><small>本机</small></span>';
-      this.selfEntry.addEventListener('animationend',event=>{if(event.target===this.selfEntry)this.selfEntry.style.animation='none';});this.selfEntry.append(this.selfNode);this.self.append(this.selfEntry);this.canvas.append(this.self);root.append(this.canvas);root.classList.add('entrance-pending');this.motionPreference.addEventListener('change',()=>this.enter());
+      this.selfEntry.addEventListener('animationend',event=>{if(event.target===this.selfEntry)this.selfEntry.style.animation='none';});this.selfEntry.append(this.selfNode);this.self.append(this.selfEntry);this.canvas.append(this.self);root.append(this.canvas);root.classList.add('entrance-pending');this.motionPreference.addEventListener('change',()=>{this.enter();this.updateOrbitPlayback();});
       root.tabIndex=0;root.setAttribute('aria-label','设备卫星图。选择设备进行连接，本机为静态标识。滚轮缩放，拖动空白移动，双击空白或按零复位。');
       root.addEventListener('wheel',event=>{event.preventDefault();const rect=root.getBoundingClientRect(),x=event.clientX-rect.left-rect.width/2,y=event.clientY-rect.top-rect.height/2;const previous=this.zoom;this.zoom=Math.max(.6,Math.min(1.8,this.zoom*Math.exp(-event.deltaY*.001)));const ratio=this.zoom/previous;this.pan.x=x-(x-this.pan.x)*ratio;this.pan.y=y-(y-this.pan.y)*ratio;this.applyTransform();},{passive:false});
       root.addEventListener('pointerdown',event=>{if(event.button!==0||event.target.closest('button,.self-device'))return;this.drag={id:event.pointerId,x:event.clientX,y:event.clientY,panX:this.pan.x,panY:this.pan.y};root.setPointerCapture(event.pointerId);root.classList.add('is-panning');});
@@ -16,10 +16,13 @@
       const stop=()=>{this.drag=null;root.classList.remove('is-panning');};root.addEventListener('pointerup',stop);root.addEventListener('pointercancel',stop);root.addEventListener('lostpointercapture',stop);
       root.addEventListener('dblclick',event=>{if(!event.target.closest('button,.self-device'))this.reset();});
       root.addEventListener('keydown',event=>{if(event.target!==root||event.isComposing)return;if(event.key==='0'){event.preventDefault();this.reset();}else if(['+','=','-'].includes(event.key)){event.preventDefault();this.zoom=Math.max(.6,Math.min(1.8,this.zoom*(event.key==='-'?.9:1.1)));this.applyTransform();}});
+      document.addEventListener('visibilitychange',()=>this.updateOrbitPlayback());
+      this.playbackObserver=new MutationObserver(()=>this.updateOrbitPlayback());this.playbackObserver.observe(document.body,{attributes:true,attributeFilter:['class']});
+      for(const event of ['pointerover','pointerout','focusin','focusout','pointerdown','pointerup','pointercancel','lostpointercapture'])root.addEventListener(event,()=>queueMicrotask(()=>this.updateOrbitPlayback()));
       this.resizeObserver=new ResizeObserver(()=>this.layout());this.resizeObserver.observe(root);this.ensureLayer(0);this.ensureLayer(1);this.layout();
     }
-    ensureLayer(index){if(this.layers.has(index))return this.layers.get(index);const line=make('div','orbit-line'),motion=make('div','orbit-motion'),entry=make('div','orbit-layer-entry');const duration=240+index*80;const direction=index%2?'reverse':'normal';motion.style.animationDuration=duration+'s';motion.style.animationDirection=direction;entry.dataset.ring=index;entry.style.setProperty('--entry-delay',(260+index*300)+'ms');entry.append(line,motion);this.canvas.append(entry);entry.addEventListener('animationend',event=>{if(event.target===entry&&event.animationName==='ring-reveal'){entry.inert=false;entry.style.animation='none';}});const layer={line,motion,entry,duration,direction};this.layers.set(index,layer);return layer;}
-    enter(){if(!this.hasState)return;this.reset();this.root.classList.remove('entrance-pending','map-entrance');this.selfEntry.style.animation='';for(const layer of this.layers.values()){layer.entry.style.animation='';layer.entry.inert=!this.motionPreference.matches&&!layer.entry.hidden;}void this.root.offsetWidth;this.root.classList.add('map-entrance');}
+    ensureLayer(index){if(this.layers.has(index))return this.layers.get(index);const line=make('div','orbit-line'),motion=make('div','orbit-motion'),entry=make('div','orbit-layer-entry');const duration=240+index*80;const direction=index%2?'reverse':'normal';motion.style.animationDuration=duration+'s';motion.style.animationDirection=direction;entry.dataset.ring=index;entry.style.setProperty('--entry-delay',(260+index*300)+'ms');entry.append(line,motion);this.canvas.append(entry);entry.addEventListener('animationend',event=>{if(event.target===entry&&event.animationName==='ring-reveal'){entry.inert=false;entry.style.animation='none';}});const layer={line,motion,entry,duration,direction,angle:0};this.layers.set(index,layer);return layer;}
+    enter(){if(!this.hasState)return;this.reset();this.root.classList.remove('entrance-pending','map-entrance');this.selfEntry.style.animation='';for(const layer of this.layers.values()){layer.entry.style.animation='';layer.entry.inert=!this.motionPreference.matches&&!layer.entry.hidden;}void this.root.offsetWidth;this.root.classList.add('map-entrance');this.updateOrbitPlayback();}
 
     update(state){const firstUpdate=!this.hasState;this.hasState=true;this.selfNode.setAttribute('aria-label',`这台电脑，${state.name}，本机`);this.selfNode.title=state.name;
       const devices=new Map();for(const peer of state.peers||[]){const key=peer.fingerprint||peer.id;if(peer.id!==state.id&&peer.fingerprint!==state.fingerprint)devices.set(key,{...peer,paired:true});}
@@ -47,8 +50,28 @@
       this.root.style.setProperty('--node-size',Math.max(54,88*scale)+'px');this.root.style.setProperty('--self-size',Math.max(104,192*scale)+'px');this.root.style.setProperty('--device-name-size',Math.max(14,20*scale)+'px');this.root.style.setProperty('--device-status-size',Math.max(11,17*scale)+'px');this.root.style.setProperty('--self-name-size',Math.max(17,24*scale)+'px');this.root.style.setProperty('--device-label-width',Math.max(132,190*scale)+'px');
       let maxRing=1;for(const record of this.records.values())maxRing=Math.max(maxRing,position(record.index).ring);
       for(const [index,layer] of this.layers){const radius=this.ringRadius(index);layer.entry.hidden=index>maxRing;layer.line.style.width=radius*2+'px';layer.line.style.height=radius*2+'px';}
-      for(const record of this.records.values()){const config=position(record.index),angle=config.angle*Math.PI/180,radius=this.ringRadius(config.ring);const dpr=devicePixelRatio||1;record.slot.style.left=Math.round(Math.cos(angle)*radius*dpr)/dpr+'px';record.slot.style.top=Math.round(Math.sin(angle)*radius*dpr)/dpr+'px';}
+      this.positionDevices();
       this.fit=maxRing>1?1/(1+.4*(maxRing-1)):1;this.applyTransform();
+    }
+    positionDevices(){
+      const dpr=devicePixelRatio||1;
+      for(const record of this.records.values()){
+        const config=position(record.index),phase=this.layers.get(config.ring).angle,angle=(config.angle+phase)*Math.PI/180,radius=this.ringRadius(config.ring);
+        // Move the node itself on whole physical pixels; never rotate its text.
+        record.slot.style.left=Math.round(Math.cos(angle)*radius*dpr)/dpr+'px';
+        record.slot.style.top=Math.round(Math.sin(angle)*radius*dpr)/dpr+'px';
+      }
+    }
+    updateOrbitPlayback(){
+      const paused=!this.hasState||this.motionPreference.matches||document.hidden||!document.body.classList.contains('home-mode')||document.body.classList.contains('window-inactive')||this.root.classList.contains('is-panning')||this.root.querySelector('button.device-node:hover,button.device-node:focus-visible');
+      if(paused){cancelAnimationFrame(this.orbitFrame);this.orbitFrame=0;this.lastOrbitTime=0;return;}
+      if(this.orbitFrame)return;
+      const tick=now=>{
+        const elapsed=this.lastOrbitTime?Math.min(now-this.lastOrbitTime,100):0;this.lastOrbitTime=now;
+        for(const layer of this.layers.values())layer.angle=(layer.angle+elapsed*360/(layer.duration*1000)*(layer.direction==='reverse'?-1:1))%360;
+        this.positionDevices();this.orbitFrame=requestAnimationFrame(tick);
+      };
+      this.orbitFrame=requestAnimationFrame(tick);
     }
     ringRadius(index){return this.radius*(index===0?.65:1+.4*(index-1));}
     applyTransform(){this.pan.x=Math.max(-this.root.clientWidth*.7,Math.min(this.root.clientWidth*.7,this.pan.x));this.pan.y=Math.max(-this.root.clientHeight*.7,Math.min(this.root.clientHeight*.7,this.pan.y));this.canvas.style.transform=this.pan.x===0&&this.pan.y===0&&this.zoom*this.fit===1?'none':`translate(${this.pan.x}px, ${this.pan.y}px) scale(${this.zoom*this.fit})`;this.root.dataset.zoom=this.zoom.toFixed(2);}

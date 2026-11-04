@@ -6,7 +6,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const size=n=>{if(!n)return '0 B';const units=['B','KB','MB','GB','TB'];const i=Math.min(Math.floor(Math.log(n)/Math.log(1024)),4);return `${(n/1024**i).toLocaleString('zh-CN',{maximumFractionDigits:1})} ${units[i]}`;};
 const date=n=>new Date(n).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const basename=p=>p.replaceAll('\\','/').split('/').pop();
-let state,view='devices',peerId='',attachments=[],locationKey='received',currentRoot='',fileData=[],selected=new Set(),page=1,ascending=true,lastIndex=0,listNonce=0,lastTimeline='',lastPeer='',toastTimer;
+let state,view='devices',peerId='',attachments=[],locationKey='received',currentRoot='',fileData=[],selected=new Set(),page=1,ascending=true,lastIndex=0,listNonce=0,lastTimeline='',toastTimer;
 const drafts=new Map(),filters={q:'',type:'',status:'',days:'',size:''};
 function toast(text){$('#toast').textContent=text;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,6500);}
 async function attempt(fn){try{return await fn();}catch(e){toast(errorText(e));return null;}}
@@ -17,8 +17,8 @@ $('#modal').addEventListener('cancel',e=>{if(modalBusy)e.preventDefault();});
 $('#modal-form').onsubmit=async e=>{e.preventDefault();if(modalBusy)return;modalBusy=true;$('#modal-submit').disabled=true;try{await modalAction();}catch(e){$('#modal-error').textContent=errorText(e);}finally{modalBusy=false;$('#modal-submit').disabled=false;}};
 function confirmAction(title,text,label,fn){modal(title,`<p>${esc(text)}</p>`,label,async()=>{await fn();$('#modal').close();});}
 function empty(title,description,button=''){return `<div class="empty"><div class="empty-icon">${icon('file')}</div><h2>${esc(title)}</h2><p>${esc(description)}</p>${button}</div>`;}
-function navigate(next){const previous=view;view=next;document.body.classList.toggle('home-mode',view==='devices');document.body.classList.toggle('chat-mode',view==='chat');$('#back-chat').hidden=!peerId||view==='chat';const panel=$('#'+view);panel.classList.remove('page-enter');void panel.offsetWidth;panel.classList.add('page-enter');document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!==view);document.querySelectorAll('[data-view]').forEach(el=>{el.classList.toggle('active',el.dataset.view===view);if(el.dataset.view===view)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});$('#page-title').textContent={devices:'设备',chat:'聊天',files:'文件管理',settings:'设置'}[view];document.title=`Lantern · ${$('#page-title').textContent}`;
-  if(view==='files')loadFiles();if(view==='settings')settingsView();if(view==='devices'&&previous!=='devices')satellite.enter();}
+function navigate(next){const previous=view;view=next;document.body.classList.toggle('home-mode',view==='devices');document.body.classList.toggle('chat-mode',view==='chat');$('#back-chat').hidden=!peerId||view==='chat';const panel=$('#'+view);panel.classList.remove('page-enter');void panel.offsetWidth;panel.classList.add('page-enter');document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!==view);document.querySelectorAll('[data-view]').forEach(el=>{el.classList.toggle('active',el.dataset.view===view);if(el.dataset.view===view)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});$('#page-title').textContent={devices:'设备',chat:'聊天',files:'文件管理',settings:'设置'}[view];document.title='Lantern';
+  if(view==='files')loadFiles();if(view==='settings'){settingsView();requestAnimationFrame(updateSettingsAnchor);}if(view==='devices'&&previous!=='devices')satellite.enter();}
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
 function showLocalDevice(){if(!state)return;
   modal(state.name,`<p>本机连接地址</p><code class="local-address">${esc(state.addresses.map(address=>address+':'+state.port).join(' / ')||'未找到局域网地址')}</code><p>配对码</p><div id="local-pair-code" class="local-code">${esc(state.code)}</div><p>在另一台电脑上输入此配对码。</p><details><summary>设备指纹</summary><code>${esc(state.fingerprint)}</code></details><div class="local-actions"><button id="local-connect" type="button" class="button">手动连接</button><button id="local-files" type="button" class="button">文件管理</button><button id="local-settings" type="button" class="button">设置</button></div>`,'关闭',async()=>$('#modal').close());
@@ -29,10 +29,9 @@ $('#chat-back').onclick=()=>navigate('devices');$('#back-chat').onclick=()=>sele
 const pauseBackground=()=>document.body.classList.toggle('window-inactive',document.hidden||!document.hasFocus());
 window.addEventListener('blur',pauseBackground);window.addEventListener('focus',pauseBackground);document.addEventListener('visibilitychange',pauseBackground);
 
-function selectPeer(id){drafts.set(peerId,{text:$('#message').value,attachments});peerId=id;const draft=drafts.get(id);$('#message').value=draft?.text||'';attachments=draft?.attachments||[];renderAttachments();lastTimeline='';navigate('chat');render();}
-function render(){if(!state)return;$('#manual-connect').disabled=false;if(!refreshDevicesBusy)$('#refresh-devices').disabled=false;if($('#manual-local-code'))$('#manual-local-code').textContent=state.code;satellite.update(state);if($('#local-pair-code'))$('#local-pair-code').textContent=state.code;$('#screenshot-hint').textContent='截图 · '+state.settings.shortcut.split('+').join(' + ');$('#self-name').textContent=state.name;$('#self-address').textContent=state.addresses.map(a=>`${a}:${state.port}`).join(' / ')||'未找到局域网地址';
-  const peersKey=JSON.stringify([peerId,state.peers]);if(peersKey!==lastPeer){lastPeer=peersKey;$('#peers').innerHTML=state.peers.map(p=>`<button class="peer ${peerId===p.id?'active':''}" data-peer="${esc(p.id)}"><span class="avatar">${icon('monitor')}</span><span><strong>${esc(p.name)}</strong><small>${p.online?'在线 · 可以传输':'离线 · 等待连接'}</small></span></button>`).join('');$('#peers').querySelectorAll('[data-peer]').forEach(b=>b.onclick=()=>selectPeer(b.dataset.peer));}
-  $('#nearby').innerHTML=state.discovered.map(p=>`<button class="peer" data-discovered="${esc(p.fingerprint)}"><span class="avatar">${icon('monitor')}</span><span><strong>${esc(p.name)}</strong><small>${esc(p.host)}:${p.port}</small></span></button>`).join('');$('#nearby').querySelectorAll('button').forEach(b=>b.onclick=()=>connectDialog(state.discovered.find(p=>p.fingerprint===b.dataset.discovered)));
+function selectPeer(id){drafts.set(peerId,{text:$('#message').value,attachments});peerId=id;const draft=drafts.get(id);$('#message').value=draft?.text||'';attachments=draft?.attachments||[];renderAttachments();lastTimeline='';navigate('chat');render();resizeComposer();}
+function render(){if(!state)return;$('#manual-connect').disabled=false;if(!refreshDevicesBusy)$('#refresh-devices').disabled=false;if($('#manual-local-code'))$('#manual-local-code').textContent=state.code;satellite.update(state);if($('#local-pair-code'))$('#local-pair-code').textContent=state.code;$('#screenshot-hint').textContent='截图 · '+state.settings.shortcut.split('+').join(' + ');
+
   const peer=state.peers.find(p=>p.id===peerId);$('#chat-name').textContent=peer?.name||'选择一台设备';$('#chat-status').textContent=peer?(peer.online?'在线 · 加密连接':'离线 · 请确认对方已打开Lantern'):'配对后，即可开始聊天和传文件';$('#send').disabled=!peer||!peer.online;$('#attach-file').disabled=$('#attach-folder').disabled=!peer;
   const events=[...state.messages.filter(m=>m.peerId===peerId).map(m=>({...m,kind:'message'})),...state.transfers.filter(t=>t.peerId===peerId).map(t=>({...t,kind:'transfer'}))].sort((a,b)=>a.time-b.time);
   const key=JSON.stringify([peerId,events]);if(lastTimeline!==key){lastTimeline=key;const nearBottom=$('#timeline').scrollHeight-$('#timeline').scrollTop-$('#timeline').clientHeight<100;
@@ -43,7 +42,7 @@ function render(){if(!state)return;$('#manual-connect').disabled=false;if(!refre
     bindTransferActions($('#timeline'));if(nearBottom)$('#timeline').scrollTop=$('#timeline').scrollHeight;
   }
   const active=state.transfers.filter(t=>['传输中','准备中','校验中','等待接收'].includes(t.status));$('#transfer-summary').textContent=active.length?`${active.length} 项传输 · ${size(active.reduce((n,t)=>n+(t.speed||0),0))}/s`:'没有进行中的传输';
-  if(view==='settings'){$('#pairing-code').textContent=state.code;$('#settings-address').textContent=state.addresses.map(a=>`${a}:${state.port}`).join(' / ');}
+  if(view==='settings')updateConnectionDetails();
   if(view==='files'&&!currentRoot){fileData=historyFiles();renderTable();}
 }
 function imageCandidate(t){return /\.(png|jpe?g|gif|webp|bmp)$/i.test(t.name);}
@@ -71,7 +70,6 @@ function connectDialog(prefill){if(!state)return;let inspected;
     const host=$('#pair-host').value.trim(),port=Number($('#pair-port').value);if(!inspected){inspected=await api.inspect(host,port);if(inspected.id===state.id)throw Error('这是当前电脑，请输入另一台电脑的地址');$('#pair-details').hidden=false;$('#pair-device').textContent=`找到：${inspected.name}`;$('#pair-fingerprint').textContent=inspected.fingerprint;$('#pair-host').disabled=$('#pair-port').disabled=true;$('#modal-submit').textContent='配对并连接';$('#pair-code').focus();return;}
     if(!$('#pair-verified').checked)throw Error('请先核对设备证书指纹');if(!/^\d{6}$/.test($('#pair-code').value))throw Error('请输入六位配对码');const id=await api.pair({host,port,fingerprint:inspected.fingerprint,code:$('#pair-code').value});$('#modal').close();await refresh();selectPeer(id);toast('配对成功，可以开始传输');
   });$('#manual-local-info').onclick=()=>{$('#modal').close();showLocalDevice();};}
-$('#connect').onclick=$('#manual').onclick=()=>connectDialog();
 $('#manual-connect').onclick=()=>connectDialog();
 $('#refresh-devices').onclick=async()=>{if(refreshDevicesBusy)return;refreshDevicesBusy=true;const button=$('#refresh-devices');button.disabled=true;button.classList.add('refreshing');button.setAttribute('aria-busy','true');try{state=await api.refreshDevices();render();toast('已重新搜索设备');}catch(error){toast(errorText(error));}finally{refreshDevicesBusy=false;button.disabled=false;button.classList.remove('refreshing');button.removeAttribute('aria-busy');}};
 $('#screenshot').onclick=()=>attempt(()=>api.capture());
@@ -88,10 +86,34 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape')hideScreensh
 function renderAttachments(){$('#attachments').innerHTML=attachments.map((a,i)=>`<div class="attachment"><button data-remove="${i}" aria-label="移除 ${esc(a.name)}">${icon('x')}</button>${a.url?`<img src="${a.url}" alt="待发送截图">`:icon('file')}<span>${esc(a.name)}</span></div>`).join('');$('#attachments').querySelectorAll('button').forEach(b=>b.onclick=()=>{attachments.splice(Number(b.dataset.remove),1);renderAttachments();});}
 async function attach(kind){const files=await api.pick(kind);attachments.push(...files.map(p=>({path:p,name:basename(p)})));renderAttachments();}
 $('#attach-file').onclick=()=>attempt(()=>attach('file'));$('#attach-folder').onclick=()=>attempt(()=>attach('directory'));
+let composerAnimation=null,composerScrollFrame=0;
+const composerReducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+function resizeComposer(){
+  const input=$('#message');if(!input.getClientRects().length)return;
+  const timeline=$('#timeline'),atBottom=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop<32;
+  const from=input.getBoundingClientRect().height;
+  composerAnimation?.cancel();composerAnimation=null;cancelAnimationFrame(composerScrollFrame);
+  const style=getComputedStyle(input),line=parseFloat(style.lineHeight),padding=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom);
+  const min=line+padding,max=line*5+padding;
+  input.style.height='auto';const content=input.scrollHeight,target=Math.min(max,Math.max(min,content));
+  input.style.height=target+'px';input.style.overflowY=content>max?'auto':'hidden';
+  if(!composerReducedMotion.matches&&Math.abs(from-target)>.5){
+    const animation=input.animate([{height:from+'px'},{height:target+'px'}],{duration:180,easing:'cubic-bezier(.2,.8,.2,1)'});
+    composerAnimation=animation;
+    const followBottom=()=>{if(composerAnimation!==animation)return;if(atBottom)timeline.scrollTop=timeline.scrollHeight;composerScrollFrame=requestAnimationFrame(followBottom);};
+    followBottom();
+    animation.onfinish=()=>{if(composerAnimation!==animation)return;composerAnimation=null;cancelAnimationFrame(composerScrollFrame);if(atBottom)timeline.scrollTop=timeline.scrollHeight;};
+  }else if(atBottom)timeline.scrollTop=timeline.scrollHeight;
+}
+composerReducedMotion.addEventListener('change',resizeComposer);
+$('#message').addEventListener('input',resizeComposer);
+let composerWidth=0;
+const composerResize=new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width&&width!==composerWidth){composerWidth=width;resizeComposer();}});
+composerResize.observe($('.composer'));
 const composer=$('.composer');composer.addEventListener('dragover',e=>{e.preventDefault();composer.classList.add('drag-over');});composer.addEventListener('dragleave',()=>composer.classList.remove('drag-over'));composer.addEventListener('drop',e=>{e.preventDefault();composer.classList.remove('drag-over');if(!peerId)return toast('请先选择已配对设备');for(const f of e.dataTransfer.files){const p=api.filePath(f);if(p)attachments.push({path:p,name:f.name});}renderAttachments();});
 $('#message').addEventListener('paste',async e=>{if([...e.clipboardData.items].some(i=>i.type.startsWith('image/'))){e.preventDefault();await attempt(async()=>{const image=await api.pasteImage();if(image){attachments.push(image);renderAttachments();}});}});
 $('#message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#send').click();}});
-$('#send').onclick=async()=>{if($('#send').disabled)return;$('#send').disabled=true;const target=peerId,text=$('#message').value,files=[...attachments];try{if(text.trim())await api.message(target,text);if(files.length)await api.send(target,files.map(f=>f.path));$('#message').value='';attachments=[];renderAttachments();await refresh();}catch(e){toast(errorText(e));}finally{$('#send').disabled=false;}};
+$('#send').onclick=async()=>{if($('#send').disabled)return;$('#send').disabled=true;const target=peerId,text=$('#message').value,files=[...attachments];try{if(text.trim())await api.message(target,text);if(files.length)await api.send(target,files.map(f=>f.path));$('#message').value='';resizeComposer();attachments=[];renderAttachments();await refresh();}catch(e){toast(errorText(e));}finally{$('#send').disabled=false;}};
 
 function historyFiles(){return state.transfers.filter(t=>locationKey==='sent'?t.direction==='out':t.direction==='in').map(t=>({...t,key:t.id,modified:t.time,source:state.peers.find(p=>p.id===t.peerId)?.name||'已解除配对设备'}));}
 async function loadFiles(){const nonce=++listNonce;selected.clear();page=1;renderLocations();$('#file-empty').hidden=false;$('#file-empty').innerHTML=empty('正在读取文件','请稍候…');try{const data=currentRoot?await api.list(currentRoot):historyFiles();if(nonce!==listNonce)return;fileData=data.map(f=>({...f,key:f.key||f.path}));renderTable();}catch(e){if(nonce!==listNonce)return;fileData=[];$('#file-rows').innerHTML='';$('#file-empty').hidden=false;$('#file-empty').innerHTML=empty('无法读取目录',errorText(e),'<button id="retry-list" class="button">重试</button>');$('#retry-list').onclick=loadFiles;}}
@@ -121,7 +143,25 @@ document.querySelectorAll('[data-bulk]').forEach(b=>b.onclick=()=>{const chosen=
   const action=b.dataset.bulk,run=async()=>{const result=await api.fileAction(action,paths);if(result?.cancelled)return;if(result?.failures?.length)throw Error(`成功 ${result.succeeded} 项，失败 ${result.failures.length} 项：\n`+result.failures.map(f=>`${f.name}：${f.error}`).join('\n'));toast(`已处理 ${result?.succeeded||0} 项`);selected.clear();await loadFiles();};
   if(['trash','move'].includes(action))confirmAction(action==='trash'?'移入回收站':'移动文件',`将所选 ${paths.length} 项${action==='trash'?'移入系统回收站，可通过回收站恢复。':'移动到你接下来选择的目录，原位置将不再保留。'}`,action==='trash'?'移入回收站':'选择目标目录',run);else attempt(run);
 });
-function settingsView(){$('#device-name').value=state.name;$('#shortcut').value=state.settings.shortcut;$('#auto-receive').checked=state.settings.autoReceive;window.LanternControls?.sync($('#auto-receive'));$('#download-dir').textContent=state.settings.downloadDir;$('#fingerprint').textContent=state.fingerprint;$('#settings-error').textContent=state.shortcutError?errorText(state.shortcutError):'';$('#trusted').innerHTML=state.peers.length?state.peers.map(p=>`<div class="trusted-item"><span>${esc(p.name)}<small>${esc(p.host)}:${p.port}</small></span><button class="button danger" data-forget="${p.id}">解除配对</button></div>`).join(''):'<p>尚未配对任何设备。</p>';$('#trusted').querySelectorAll('button').forEach(b=>b.onclick=()=>confirmAction('解除配对','此设备将无法继续发送消息和文件。重新连接需要再次配对。','解除配对',async()=>{await api.forget(b.dataset.forget);await refresh();settingsView();}));}
+function updateConnectionDetails(){$('#pairing-code').textContent=state.code;$('#settings-address').textContent=state.addresses.map(a=>`${a}:${state.port}`).join(' / ')||'未找到局域网地址';}
+function settingsView(){updateConnectionDetails();$('#device-name').value=state.name;$('#shortcut').value=state.settings.shortcut;$('#auto-receive').checked=state.settings.autoReceive;window.LanternControls?.sync($('#auto-receive'));$('#download-dir').textContent=state.settings.downloadDir;$('#fingerprint').textContent=state.fingerprint;$('#settings-error').textContent=state.shortcutError?errorText(state.shortcutError):'';$('#trusted').innerHTML=state.peers.length?state.peers.map(p=>`<div class="trusted-item"><span class="trusted-device">${icon('monitor')}<span>${esc(p.name)}<small>${esc(p.host)}:${p.port}</small></span></span><span class="trusted-state">${p.online?'在线':'离线'}</span><button class="button danger" data-forget="${p.id}">解除配对</button></div>`).join(''):'<p>尚未配对任何设备。</p>';$('#trusted').querySelectorAll('button').forEach(b=>b.onclick=()=>confirmAction('解除配对','此设备将无法继续发送消息和文件。重新连接需要再次配对。','解除配对',async()=>{await api.forget(b.dataset.forget);await refresh();settingsView();}));}
+const settingsScroller=$('#settings'),settingsAnchors=[...document.querySelectorAll('[data-settings-anchor]')];
+function updateSettingsAnchor(){
+  if(view!=='settings')return;
+  const nav=$('.settings-anchors'),connection=$('#settings-connections');
+  const reached=connection.getBoundingClientRect().top<=nav.getBoundingClientRect().bottom+28;
+  const atEnd=settingsScroller.scrollTop>0&&settingsScroller.scrollHeight-settingsScroller.scrollTop-settingsScroller.clientHeight<2;
+  const current=reached||atEnd?'settings-connections':'settings-general';
+  for(const button of settingsAnchors){const active=button.dataset.settingsAnchor===current;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','location');else button.removeAttribute('aria-current');}
+}
+settingsScroller.addEventListener('scroll',updateSettingsAnchor,{passive:true});
+new ResizeObserver(updateSettingsAnchor).observe(settingsScroller);
+for(const button of settingsAnchors)button.onclick=()=>{
+  const target=$('#'+button.dataset.settingsAnchor),nav=$('.settings-anchors');
+  const top=target.id==='settings-general'?0:target.getBoundingClientRect().top-settingsScroller.getBoundingClientRect().top+settingsScroller.scrollTop-nav.offsetHeight-20;
+  settingsScroller.scrollTo({top:Math.max(0,top),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+};
+$('#copy-pairing-code').onclick=async()=>{const button=$('#copy-pairing-code');button.disabled=true;try{const code=await api.copyPairingCode();$('#pairing-code').textContent=code;toast('配对码已复制');}catch(error){toast(errorText(error));}finally{button.disabled=false;}};
 $('#choose-download').onclick=()=>attempt(async()=>{state=await api.settings({chooseDir:true});$('#download-dir').textContent=state.settings.downloadDir;});$('#settings-form').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;try{if(!$('#device-name').value.trim())throw Error('请输入设备名称');state=await api.settings({name:$('#device-name').value,shortcut:$('#shortcut').value,autoReceive:$('#auto-receive').checked});$('#settings-error').textContent='';toast('设置已保存');render();}catch(e){$('#settings-error').textContent=errorText(e);}finally{button.disabled=false;}};
 let polling=false;async function refresh(){if(polling)return;polling=true;try{state=await api.snapshot();render();}finally{polling=false;}}
 if(api){refresh().catch(e=>toast('启动失败：'+errorText(e)));setInterval(()=>refresh().catch(()=>{}),1000);}else{$('#timeline').innerHTML=empty('请在桌面客户端中打开','使用 npm start 启动Lantern，浏览器预览不具备设备与文件访问能力。');}

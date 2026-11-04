@@ -16,6 +16,9 @@
     "loader": "loader-circle"
   },
   "inline": {
+    "copy": "copy",
+    "download": "download",
+    "link": "link",
     "archive": "file-archive",
     "chat": "message-square",
     "folder": "folder",

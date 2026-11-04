@@ -38,3 +38,65 @@ body:not(.chat-mode) .refine-frame__sweep,body:not(.chat-mode) .refine-frame__ma
 svg{stroke-width:2;shape-rendering:geometricPrecision}.glide-select[data-swap] .glide-select__label,.refine-frame__label{animation:none!important;filter:none!important}.refine-frame__chip{backdrop-filter:none;-webkit-backdrop-filter:none;background:color-mix(in srgb,var(--rf-bg) 94%,transparent)}
 .chat-refine-frame[data-status=complete] .refine-frame__media{filter:none!important;transform:none!important;opacity:1}.chat-refine-frame[data-resolved] .chat-image{filter:none;transform:none;image-rendering:auto}
 .orbit-canvas,.orbit-motion,.orbit-counter{will-change:auto}.orbit-motion,.orbit-counter{animation-name:none!important;transform:none!important}button.device-node:hover .node-face,button.device-node:active .node-face{transform:none}.device-copy strong,.self-device .device-copy strong{font-weight:600}.file-badge svg{width:18px;height:18px}.file-badge{display:inline-flex;align-items:center;justify-content:center}.attachment button svg{width:14px;height:14px}#sort-name{display:inline-flex;align-items:center;gap:5px}#sort-name svg{width:14px;height:14px}
+
+/* Shared scrollbars and roomy command hit areas, 0.3.7. */
+*{scrollbar-width:auto;scrollbar-color:auto}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--scroll-thumb,#aab6c5);border:2px solid transparent;background-clip:padding-box;border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted,#738197);border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-button,::-webkit-scrollbar-button:single-button,::-webkit-scrollbar-button:double-button{display:none;width:0;height:0}
+::-webkit-scrollbar-corner{background:transparent}
+body .chat-view .timeline{padding:22px 22px 20px 0;scrollbar-gutter:stable}
+body .chat-view #message{height:30px;min-height:30px;max-height:118px;line-height:22px;padding:2px 0 6px;overflow-y:hidden;scrollbar-gutter:stable}
+body .brand-home{padding:6px 10px;min-height:40px}
+body td.file-name button{padding:6px 8px;min-height:34px}
+body th button{padding:5px 8px;min-height:28px}
+body .side-label button,body .attachment button,body #clear-search{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:6px;flex-shrink:0}
+body .side-label button{line-height:1}
+body .attachment{min-height:36px}
+@media(max-width:800px){body .chat-view .timeline{padding-right:16px}}
+
+/* Full-width workspace; settings follows the selected flat, anchored composition. */
+.shell{grid-template-columns:minmax(0,1fr)}main{grid-column:1}
+body .settings-view{padding:0;overflow:auto;background:var(--surface);scrollbar-gutter:stable}
+.settings-content{max-width:960px;margin:0;padding:28px 28px 36px}
+body .settings-title{font-size:26px;font-weight:600;line-height:1.3;margin:0 0 12px}
+.settings-anchors{position:sticky;top:0;z-index:4;display:flex;gap:10px;background:var(--surface);border-bottom:1px solid var(--line);padding:0 0 1px;margin-bottom:0}
+body button.settings-anchor{border:0;--control-bg:transparent;position:relative;padding:10px 12px;min-height:40px;color:var(--muted);font:600 14px/1.4 var(--font)}
+body button.settings-anchor.active{color:var(--primary)}
+.settings-anchor.active::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:3px;background:var(--primary)}
+body .settings-view form{max-width:none;margin:0}
+body .settings-section{scroll-margin-top:76px}
+body .settings-group{max-width:none;padding:22px 0;border-bottom:1px solid var(--line)}
+body .settings-group h3{display:flex;align-items:center;gap:10px;font-size:18px;line-height:1.4;font-weight:600;margin:0 0 16px}
+.settings-group h3 svg{width:20px;height:20px}
+body .setting-row{display:grid;grid-template-columns:minmax(230px,.85fr) minmax(0,1.15fr);gap:24px;align-items:center;min-height:56px;margin:0}
+body .setting-row+.setting-row{margin-top:12px}
+body .setting-description{min-width:0;font-size:14px;line-height:1.5}
+body .settings-group .setting-description label,body .setting-description strong{display:block;font-size:14px;font-weight:500;margin:0}
+body .settings-group .setting-description p,body .setting-description small{display:block;font-size:12px;line-height:1.5;color:var(--muted);margin:4px 0 0}
+body .settings-group input:not([type=checkbox]){max-width:none;width:100%;min-width:0;min-height:38px;padding:9px 12px;font-size:14px;line-height:20px}
+body .setting-row.toggle-row{display:grid;justify-content:normal}
+body .setting-row.toggle-row .squish-switch-host{justify-self:start}
+body .settings-view .path-row{gap:12px;min-width:0;align-items:center}
+body .settings-view .path-row code{flex:1;min-width:0;font:12px/1.5 var(--mono);overflow-wrap:anywhere;background:var(--input-fill);border-radius:var(--control-radius);padding:10px 12px}
+.path-row button{flex-shrink:0}
+.settings-save{padding:18px 0 18px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.settings-save .error:empty{display:none}.settings-save .error{margin:0;font-size:13px}
+.settings-save .button{min-height:36px;padding:7px 18px}
+.pairing-value{display:flex;gap:16px;align-items:center;justify-content:space-between}
+body .settings-view .pairing-code{color:var(--ink);font:600 24px/1.4 var(--mono);letter-spacing:4px;white-space:nowrap}
+.settings-address{font:14px/1.6 var(--mono);overflow-wrap:anywhere}
+.settings-fingerprint{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.6}
+.settings-fingerprint summary{cursor:pointer;width:fit-content;padding:6px 8px;border-radius:var(--control-radius)}
+.settings-fingerprint summary:hover{background:var(--control-hover-layer)}
+.settings-fingerprint code{display:block;margin-top:12px;overflow-wrap:anywhere;font-size:12px;color:var(--ink)}
+body .trusted-group{border-bottom:0}
+body .trusted-item{padding:12px 0;gap:12px;border-bottom:1px solid var(--line);font-size:14px;min-width:0}
+.trusted-device{display:flex;align-items:center;gap:12px;min-width:0}.trusted-device>svg{width:22px;height:22px;flex-shrink:0}.trusted-device>span{overflow-wrap:anywhere}
+body .trusted-item small{font-size:12px;line-height:1.6;margin-top:3px}
+.trusted-state{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
+body .trusted-item .button{flex-shrink:0}
+@media(max-width:900px){.settings-content{padding:24px 24px 32px}body .setting-row{grid-template-columns:minmax(200px,.85fr) minmax(0,1.15fr);gap:20px}body .settings-group h3{font-size:18px}}
+@media(max-width:620px){.settings-content{padding:20px 20px 28px}body .setting-row{grid-template-columns:minmax(0,1fr);gap:10px}body .setting-row+.setting-row{margin-top:16px}.trusted-state{display:none}}

@@ -135,3 +135,31 @@ All command/device/file/status glyphs use the official lucide-static package. sc
 Remove blur animation from all text/status labels. At rest, the satellite canvas has no identity transform/will-change promotion, and orbit/counter motion is disabled. Entry wrappers discard their animation transforms after completing; node positions snap to the physical pixel grid. Device text uses a standard 600 weight. Hover uses color/border feedback rather than permanently scaling icons. Completed Refine Frame media has filter/transform none; only the explicitly requested loading-image refinement remains animated.
 
 Errors shown in dialogs, toasts, timeline and file operations use core/errors.cjs via a small shared browser bundle. Native filesystem codes, paths, IPC prefixes and call stacks never appear as user instructions. Known cases explain disk space, permissions, missing files, connection failure and cross-volume compatibility. Raw diagnostic details remain local. Existing failed-job messages are sanitized in snapshots and at the renderer boundary.
+
+## Chat spacing and controls 0.3.7
+
+Shared theme owns all scrollbar skins: no arrow buttons, a transparent track and inset thumb. Chat messages keep 22px between content and the scrollbar (16px at narrow widths). Brand, file-name, table-sort and small icon command hit areas include internal hover padding, using the same 8px radius and inset feedback as other commands.
+
+The composer starts at one 22px text line and grows on input, paste, draft restoration and width changes. At five lines (118px including padding), it scrolls internally; deleting or sending shrinks it again. Keep the timeline at its bottom only when already near the bottom. Enter/Shift+Enter/IME and existing attachment actions are preserved.
+
+## Composer motion 0.3.8
+
+Height grows and shrinks over 180ms with cubic-bezier(.2,.8,.2,1). Interrupted input retargets from the current visible height; five-line cap and shrinking remain intact. The timeline follows its bottom during the animation only if already near the bottom. Reduced-motion preference skips height animation, including live preference changes.
+
+## Settings workspace and orbital motion 0.3.9
+
+Selected visual: D:/Lantern/design/settings-layout/settings-design-3.png. Preserve its flat white, centered settings layout, left descriptions/right controls, restrained headings and section dividers. User amendment: 常规 / 连接与信任 are sticky page-position buttons, not tab panels. Both regions stay in one vertical scroller. Click/Enter scrolls to the section (instant for reduced motion); manual scrolling and resizing update aria-current=location. Anchoring never calls settingsView or discards unsaved values. General fields and save retain existing persistence/validation. Connection info and trusted peers follow below. Adequate section height lets the last anchor reach the top even with a short peer list. Form/scroll/toast semantics remain owned by app.js and the shared theme; React Bits owns the existing switch/select controls.
+
+The device sidebar is removed from markup and rendering. Settings and file management share the full-width workspace and existing top navigation. Device access remains on the satellite home; no hidden duplicate discovery list is maintained.
+
+Copy pairing code is an explicit, scoped main-process IPC. It reads the current code at click time, writes plain six-digit text, confirms the clipboard, and returns readable errors on contention. UI disables only its copy button while pending and reports success/failure through the shared live-region toast. Initial settings entry immediately fills code and local addresses; polling updates them without resetting edits.
+
+This revision supersedes the static-orbit decision in 0.3.6: devices move slowly along their orbit by updating physical-pixel-snapped coordinates. Text wrappers do not rotate or counterrotate. RAF runs only for the visible, active home; hover, keyboard focus on a device, dragging, background state and reduced motion pause it. Phase and DOM identity survive polling, with no catch-up jump when resumed. Existing spring sequence remains local computer, inner ring, outer ring.
+
+## Compact settings 0.3.11
+
+Settings content max-width is 960px including 28px side padding; top padding 28px, group padding 22px, minimum form row 56px with 12px between rows. Title/section/field typography uses 26/18/14px. Inputs are 38px high. The auto-receive switch aligns to the same control-column start as the editable fields. Sticky anchors, one-page content, copy, and form behavior remain unchanged. The final connection section keeps its required anchor scroll space.
+
+## Left-aligned settings 0.3.12
+
+Settings content keeps the compact 960px maximum width but aligns to the workspace left with normal 28px padding (24px narrow). Remove the viewport-based minimum height on the final connection section. Anchors scroll within the natural document bounds; a short final section may stop at the page end, where the existing scrollspy marks 连接与信任 current. Do not add empty spacer height just to force an anchor to the top. This supersedes the final-section anchor spacer in 0.3.9/0.3.11.

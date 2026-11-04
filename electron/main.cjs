@@ -42,7 +42,8 @@ app.whenReady().then(async()=>{
   });
   main=new BrowserWindow(windowOptions({width:1220,height:820,minWidth:780,minHeight:580,title:'Lantern',icon:path.join(__dirname,'../assets/icon.ico'),backgroundColor:'#f5f6f8',show:false}));secure(main);Menu.setApplicationMenu(null);
   const register=shortcut=>{if(!globalShortcut.register(shortcut,()=>capture().catch(e=>(logError(e,'capture'),dialog.showErrorBox('截图失败',userMessage(e))))))throw Error('截图快捷键已被占用，请换一个组合键');};
-  bind('snapshot',()=>engine.snapshot());bind('refreshDevices',()=>engine.refreshDevices());bind('inspect',(host,port)=>engine.inspect(host,port));bind('pair',input=>engine.pair(input));bind('message',(id,text)=>engine.message(id,text));
+  bind('snapshot',()=>engine.snapshot());
+  bind('copyPairingCode',async()=>{const code=engine.snapshot().code;for(let attempt=0;attempt<3;attempt++){clipboard.writeText(code);if(clipboard.readText()===code)return code;await new Promise(resolve=>setTimeout(resolve,60));}throw Error('剪贴板暂时不可用，请稍后重试复制配对码。');});bind('refreshDevices',()=>engine.refreshDevices());bind('inspect',(host,port)=>engine.inspect(host,port));bind('pair',input=>engine.pair(input));bind('message',(id,text)=>engine.message(id,text));
   bind('pick',kind=>pick(kind));bind('send',async(id,paths)=>{for(const p of paths){if(typeof p!=='string')throw Error('文件路径无效');}return engine.send(id,paths);});
   bind('cancel',id=>engine.cancel(id));bind('retry',id=>engine.retry(id));bind('accept',(id,value)=>engine.accept(id,value));
   bind('forget',id=>{engine.state.peers=engine.state.peers.filter(p=>p.id!==id);engine.save();});
